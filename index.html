@@ -592,9 +592,17 @@ async function loadAccountsAndSettings(){
   document.getElementById('titlebar-account').textContent = state.account.account_name;
   document.getElementById('sb-account').textContent = state.account.account_name;
 
-  const { data: settings, error: setErr } = await sb.from('settings').select('*').single();
+  const { data: settings, error: setErr } = await sb.from('settings').select('*').maybeSingle();
   if (setErr){ showMsg('global-msg', friendlyError(setErr), 'error'); return; }
-  state.settings = settings;
+  if (!settings){
+    // Settings row missing (e.g. account created before the schema's
+    // auto-create trigger existed) — create it now instead of failing.
+    const { data: created, error: createErr } = await sb.from('settings').insert({ user_id: state.user.id }).select().single();
+    if (createErr){ showMsg('global-msg', friendlyError(createErr), 'error'); return; }
+    state.settings = created;
+  } else {
+    state.settings = settings;
+  }
   populateSettingsForm();
 }
 
