@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TradeTerm — Trading Management</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+/* ============================================================================
+   TradeTerm — Windows 2000/XP classic trading-terminal visual language.
+   Beveled controls, inset panels, #C0C0C0/#D4D0C8 palette, dense tables.
+   ========================================================================= */
+:root{
+  --face:#C0C0C0;
+  --face-dark:#D4D0C8;
+  --shadow:#808080;
+  --shadow-dark:#404040;
+  --light:#FFFFFF;
+  --lightface:#DFDFDF;
+  --titlebar:#0A246A;
+  --titlebar-text:#FFFFFF;
+  --link:#000080;
+  --green:#006400;
+  --red:#8B0000;
+  --amber:#8B6914;
+  --font: Tahoma, "MS Sans Serif", Arial, sans-serif;
+}
+*{box-sizing:border-box;}
+html,body{
+  margin:0;padding:0;height:100%;
+  background:#008080; /* classic desktop teal */
+  font-family:var(--font);
+  font-size:11px;
+  color:#000;
+}
+button, input, select, textarea{ font-family:var(--font); font-size:11px; }
+
+.raised{
+  background:var(--face);
+  border-top:1px solid var(--light);
+  border-left:1px solid var(--light);
+  border-right:1px solid var(--shadow-dark);
+  border-bottom:1px solid var(--shadow-dark);
+  box-shadow: inset 1px 1px 0 var(--lightface), inset -1px -1px 0 var(--shadow);
+}
+.inset{
+  background:#fff;
+  border-top:1px solid var(--shadow-dark);
+  border-left:1px solid var(--shadow-dark);
+  border-right:1px solid var(--light);
+  border-bottom:1px solid var(--light);
+  box-shadow: inset 1px 1px 0 var(--shadow), inset -1px -1px 0 var(--lightface);
+}
+.win-btn{
+  padding:3px 10px;
+  cursor:pointer;
+  background:var(--face);
+  border-top:1px solid var(--light);
+  border-left:1px solid var(--light);
+  border-right:1px solid var(--shadow-dark);
+  border-bottom:1px solid var(--shadow-dark);
+}
+.win-btn:active{
+  border-top:1px solid var(--shadow-dark);
+  border-left:1px solid var(--shadow-dark);
+  border-right:1px solid var(--light);
+  border-bottom:1px solid var(--light);
+  padding:4px 9px 2px 11px;
+}
+.win-btn:disabled{ color:#808080; cursor:default; }
+.win-btn.primary{ font-weight:bold; }
+
+/* ---------- App shell ---------- */
+#app-shell{ display:none; flex-direction:column; height:100vh; }
+#auth-shell{ display:flex; align-items:center; justify-content:center; height:100vh; }
+
+.titlebar{
+  background:linear-gradient(90deg, var(--titlebar), #3A6EA5);
+  color:var(--titlebar-text);
+  font-weight:bold;
+  padding:3px 6px;
+  display:flex; justify-content:space-between; align-items:center;
+}
+.menubar{
+  background:var(--face);
+  border-bottom:1px solid var(--shadow);
+  display:flex;
+  padding:2px 0;
+}
+.nav-btn{
+  padding:4px 12px;
+  cursor:pointer;
+  border-right:1px solid var(--shadow);
+  white-space:nowrap;
+}
+.nav-btn:hover{ background:var(--lightface); }
+.nav-btn.active{
+  background:#fff;
+  border-top:1px solid var(--shadow-dark);
+  border-left:1px solid var(--shadow-dark);
+  font-weight:bold;
+}
+
+#workspace{ flex:1; overflow:auto; padding:8px; background:var(--face-dark); }
+
+.panel{
+  margin-bottom:8px;
+}
+.panel-title{
+  background:var(--titlebar);
+  color:#fff;
+  font-weight:bold;
+  padding:2px 6px;
+  font-size:11px;
+}
+.panel-body{ padding:8px; }
+
+.grid{ display:grid; gap:8px; }
+.grid-4{ grid-template-columns:repeat(4,1fr); }
+.grid-3{ grid-template-columns:repeat(3,1fr); }
+.grid-2{ grid-template-columns:repeat(2,1fr); }
+@media(max-width:800px){ .grid-4,.grid-3,.grid-2{ grid-template-columns:1fr; } }
+
+.stat-box{ padding:6px 8px; }
+.stat-label{ font-size:10px; color:#404040; text-transform:uppercase; }
+.stat-value{ font-size:15px; font-weight:bold; }
+.pos{ color:var(--green); }
+.neg{ color:var(--red); }
+
+table.data{ width:100%; border-collapse:collapse; background:#fff; }
+table.data th{
+  background:var(--face);
+  border:1px solid var(--shadow);
+  padding:3px 5px;
+  text-align:left;
+  position:sticky; top:0;
+}
+table.data td{ border:1px solid #d0d0d0; padding:3px 5px; white-space:nowrap; }
+table.data tr:nth-child(even) td{ background:#F2F2F2; }
+table.data tr:hover td{ background:#DCE8F5; }
+table.data tr.selected td{ background:#316AC5; color:#fff; }
+
+.form-row{ display:flex; flex-direction:column; gap:2px; margin-bottom:6px; }
+.form-row label{ font-size:10px; font-weight:bold; }
+.form-row input, .form-row select, .form-row textarea{
+  padding:3px 4px;
+}
+.field-error{ color:var(--red); font-size:10px; }
+
+.statusbar{
+  background:var(--face);
+  border-top:1px solid var(--light);
+  display:flex;
+  font-size:10px;
+  padding:2px 0;
+}
+.statusbar .seg{
+  padding:2px 8px;
+  border-right:1px solid var(--shadow);
+}
+
+.toolbar{ display:flex; gap:6px; padding:4px; background:var(--face); border-bottom:1px solid var(--shadow); flex-wrap:wrap; align-items:center; }
+.toolbar .spacer{ flex:1; }
+
+.hidden{ display:none !important; }
+.msg-banner{ padding:6px 8px; font-weight:bold; }
+.msg-error{ background:#FFD0D0; color:var(--red); border:1px solid var(--red); }
+.msg-info{ background:#D0E4FF; color:var(--link); border:1px solid var(--link); }
+
+.section{ display:none; }
+.section.active{ display:block; }
+
+.small{ font-size:10px; color:#404040; }
+.tag{ padding:1px 5px; font-size:10px; font-weight:bold; border:1px solid; }
+.tag.open{ color:var(--amber); border-color:var(--amber); background:#FFF6D8; }
+.tag.closed{ color:#404040; border-color:#404040; background:#eee; }
+</style>
+</head>
+<body>
+
+<!-- ==================== AUTH SCREEN ==================== -->
+<div id="auth-shell">
+  <div class="raised" style="width:320px;">
+    <div class="titlebar"><span>TradeTerm — Sign In</span></div>
+    <div class="panel-body" style="padding:14px;">
+      <div id="auth-msg"></div>
+      <div class="form-row">
+        <label>EMAIL</label>
+        <input type="email" id="auth-email" class="inset" autocomplete="username">
+      </div>
+      <div class="form-row">
+        <label>PASSWORD</label>
+        <input type="password" id="auth-password" class="inset" autocomplete="current-password">
+      </div>
+      <div style="display:flex; gap:6px; margin-top:10px;">
+        <button class="win-btn primary" id="btn-sign-in">Sign In</button>
+        <button class="win-btn" id="btn-sign-up">Create Account</button>
+      </div>
+      <div class="small" style="margin-top:10px;">Single-user terminal. Configure SUPABASE_URL / SUPABASE_ANON_KEY at the top of the script before use.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== APP SHELL ==================== -->
+<div id="app-shell">
+  <div class="titlebar">
+    <span>TradeTerm — Trading Management</span>
+    <span id="titlebar-account" style="font-weight:normal;"></span>
+  </div>
+  <div class="menubar" id="nav-bar">
+    <div class="nav-btn active" data-section="dashboard">Dashboard</div>
+    <div class="nav-btn" data-section="tradelog">Trade Log</div>
+    <div class="nav-btn" data-section="opentrade">Open Trade</div>
+    <div class="nav-btn" data-section="closetrade">Close Trade</div>
+    <div class="nav-btn" data-section="risk">Risk Management</div>
+    <div class="nav-btn" data-section="stats">Statistics</div>
+    <div class="nav-btn" data-section="account">Account</div>
+    <div class="nav-btn" data-section="settings">Settings</div>
+    <div class="spacer" style="flex:1;"></div>
+    <div class="nav-btn" id="btn-refresh">⟳ Refresh</div>
+    <div class="nav-btn" id="btn-signout">Sign Out</div>
+  </div>
+
+  <div id="workspace">
+    <div id="global-msg"></div>
+
+    <!-- ---------------- DASHBOARD ---------------- -->
+    <section class="section" id="section-dashboard">
+      <div class="panel raised">
+        <div class="panel-title">Account Summary</div>
+        <div class="panel-body grid grid-4">
+          <div class="stat-box inset"><div class="stat-label">Current Balance</div><div class="stat-value" id="dash-balance">—</div></div>
+          <div class="stat-box inset"><div class="stat-label">Today's P/L</div><div class="stat-value" id="dash-today-pl">—</div></div>
+          <div class="stat-box inset"><div class="stat-label">Open Trades</div><div class="stat-value" id="dash-open-count">—</div></div>
+          <div class="stat-box inset"><div class="stat-label">Current Streak</div><div class="stat-value" id="dash-streak">—</div></div>
+          <div class="stat-box inset"><div class="stat-label">Total Trades</div><div class="stat-value" id="dash-total-trades">—</div></div>
+          <div class="stat-box inset"><div class="stat-label">Win Rate</div><div class="stat-value" id="dash-winrate">—</div></div>
+          <div class="stat-box inset"><div class="stat-label">Profit Factor</div><div class="stat-value" id="dash-pf">—</div></div>
+          <div class="stat-box inset"><div class="stat-label">Realized P/L</div><div class="stat-value" id="dash-realized">—</div></div>
+        </div>
+      </div>
+      <div class="panel raised">
+        <div class="panel-title">Open Positions</div>
+        <div class="panel-body" style="overflow-x:auto;">
+          <table class="data" id="dash-open-table">
+            <thead><tr><th>Entry Code</th><th>Asset</th><th>Dir</th><th>Entry Price</th><th>Size</th><th>SL</th><th>TP</th><th>Opened</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------- TRADE LOG ---------------- -->
+    <section class="section" id="section-tradelog">
+      <div class="panel raised">
+        <div class="panel-title">Trade Log</div>
+        <div class="toolbar">
+          <label class="small">Status:</label>
+          <select id="tl-filter-status" class="inset">
+            <option value="ALL">All</option>
+            <option value="OPEN">Open</option>
+            <option value="CLOSED" selected>Closed</option>
+          </select>
+          <label class="small">Asset:</label>
+          <input type="text" id="tl-filter-asset" class="inset" placeholder="e.g. BTC" style="width:100px;">
+          <button class="win-btn" id="tl-apply-filter">Apply</button>
+        </div>
+        <div class="panel-body" style="overflow-x:auto;">
+          <table class="data" id="tl-table">
+            <thead><tr>
+              <th>Entry Code</th><th>Asset</th><th>Dir</th><th>Entry</th><th>Exit</th>
+              <th>Size</th><th>Net P/L</th><th>P/L %</th><th>Status</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------- OPEN TRADE ---------------- -->
+    <section class="section" id="section-opentrade">
+      <div class="panel raised">
+        <div class="panel-title">Open Trade</div>
+        <div class="panel-body">
+          <div id="ot-msg"></div>
+          <div class="grid grid-3">
+            <div class="form-row"><label>ASSET *</label><input class="inset" id="ot-asset" placeholder="e.g. BTCUSD"></div>
+            <div class="form-row"><label>MARKET TYPE *</label>
+              <select class="inset" id="ot-market"><option>SPOT</option><option>FUTURES</option><option>FOREX</option><option>OPTIONS</option></select>
+            </div>
+            <div class="form-row"><label>DIRECTION *</label>
+              <select class="inset" id="ot-direction"><option value="LONG">LONG</option><option value="SHORT">SHORT</option></select>
+            </div>
+            <div class="form-row"><label>ENTRY PRICE *</label><input class="inset" type="number" step="any" id="ot-entry-price"></div>
+            <div class="form-row"><label>POSITION SIZE *</label><input class="inset" type="number" step="any" id="ot-size"></div>
+            <div class="form-row"><label>LEVERAGE *</label><input class="inset" type="number" step="any" id="ot-leverage" value="1"></div>
+            <div class="form-row"><label>STOP LOSS *</label><input class="inset" type="number" step="any" id="ot-sl"></div>
+            <div class="form-row"><label>TAKE PROFIT *</label><input class="inset" type="number" step="any" id="ot-tp"></div>
+            <div class="form-row"><label>STRATEGY *</label><input class="inset" id="ot-strategy"></div>
+          </div>
+          <div class="form-row"><label>ENTRY NOTE</label><textarea class="inset" id="ot-note" rows="2"></textarea></div>
+
+          <div class="panel raised" style="margin-top:8px;">
+            <div class="panel-title">Live Calculation (local, instant)</div>
+            <div class="panel-body grid grid-4">
+              <div class="stat-box inset"><div class="stat-label">Risk Amount</div><div class="stat-value" id="ot-calc-risk">—</div></div>
+              <div class="stat-box inset"><div class="stat-label">Position Value</div><div class="stat-value" id="ot-calc-value">—</div></div>
+              <div class="stat-box inset"><div class="stat-label">Margin</div><div class="stat-value" id="ot-calc-margin">—</div></div>
+              <div class="stat-box inset"><div class="stat-label">Maximum Loss</div><div class="stat-value" id="ot-calc-maxloss">—</div></div>
+              <div class="stat-box inset"><div class="stat-label">Entry Fee</div><div class="stat-value" id="ot-calc-fee">—</div></div>
+              <div class="stat-box inset"><div class="stat-label">Risk / Reward</div><div class="stat-value" id="ot-calc-rr">—</div></div>
+            </div>
+          </div>
+          <div style="margin-top:8px;">
+            <button class="win-btn primary" id="ot-submit">OPEN TRADE</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------- CLOSE TRADE ---------------- -->
+    <section class="section" id="section-closetrade">
+      <div class="panel raised">
+        <div class="panel-title">Close Trade</div>
+        <div class="panel-body">
+          <div class="grid grid-2">
+            <div>
+              <div class="form-row"><label>SELECT OPEN POSITION</label>
+                <select class="inset" id="ct-select"></select>
+              </div>
+              <div id="ct-details" class="inset" style="padding:8px; min-height:120px;"></div>
+            </div>
+            <div>
+              <div id="ct-msg"></div>
+              <div class="form-row"><label>EXIT PRICE *</label><input class="inset" type="number" step="any" id="ct-exit-price"></div>
+              <div class="form-row"><label>EXIT REASON *</label>
+                <select class="inset" id="ct-exit-reason">
+                  <option>TAKE_PROFIT</option><option>STOP_LOSS</option><option>MANUAL</option><option>LIQUIDATION</option><option>OTHER</option>
+                </select>
+              </div>
+              <div class="form-row"><label>EXIT FEE</label><input class="inset" type="number" step="any" id="ct-exit-fee" value="0"></div>
+              <div class="panel raised">
+                <div class="panel-title">Live Calculation</div>
+                <div class="panel-body grid grid-2">
+                  <div class="stat-box inset"><div class="stat-label">Gross P/L</div><div class="stat-value" id="ct-calc-gross">—</div></div>
+                  <div class="stat-box inset"><div class="stat-label">Net P/L</div><div class="stat-value" id="ct-calc-net">—</div></div>
+                  <div class="stat-box inset"><div class="stat-label">P/L %</div><div class="stat-value" id="ct-calc-pct">—</div></div>
+                  <div class="stat-box inset"><div class="stat-label">Holding Time</div><div class="stat-value" id="ct-calc-hold">—</div></div>
+                </div>
+              </div>
+              <div style="margin-top:8px;">
+                <button class="win-btn primary" id="ct-submit">CLOSE TRADE</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------- RISK MANAGEMENT ---------------- -->
+    <section class="section" id="section-risk">
+      <div class="panel raised">
+        <div class="panel-title">Risk Management Calculator (pure client-side, no network calls)</div>
+        <div class="panel-body grid grid-2">
+          <div>
+            <div class="form-row"><label>ACCOUNT BALANCE</label><input class="inset" type="number" step="any" id="rk-balance"></div>
+            <div class="form-row"><label>RISK %</label><input class="inset" type="number" step="any" id="rk-risk-pct"></div>
+            <div class="form-row"><label>ENTRY PRICE</label><input class="inset" type="number" step="any" id="rk-entry"></div>
+            <div class="form-row"><label>STOP LOSS</label><input class="inset" type="number" step="any" id="rk-sl"></div>
+            <div class="form-row"><label>TAKE PROFIT</label><input class="inset" type="number" step="any" id="rk-tp"></div>
+            <div class="form-row"><label>LEVERAGE</label><input class="inset" type="number" step="any" id="rk-leverage" value="1"></div>
+          </div>
+          <div class="grid" style="align-content:start;">
+            <div class="stat-box inset"><div class="stat-label">Risk Amount</div><div class="stat-value" id="rk-out-risk">—</div></div>
+            <div class="stat-box inset"><div class="stat-label">Position Size</div><div class="stat-value" id="rk-out-size">—</div></div>
+            <div class="stat-box inset"><div class="stat-label">Position Value</div><div class="stat-value" id="rk-out-value">—</div></div>
+            <div class="stat-box inset"><div class="stat-label">Required Margin</div><div class="stat-value" id="rk-out-margin">—</div></div>
+            <div class="stat-box inset"><div class="stat-label">Maximum Loss</div><div class="stat-value" id="rk-out-maxloss">—</div></div>
+            <div class="stat-box inset"><div class="stat-label">Potential Profit</div><div class="stat-value" id="rk-out-profit">—</div></div>
+            <div class="stat-box inset"><div class="stat-label">Potential Loss</div><div class="stat-value" id="rk-out-loss">—</div></div>
+            <div class="stat-box inset"><div class="stat-label">Risk / Reward</div><div class="stat-value" id="rk-out-rr">—</div></div>
+          </div>
+        </div>
+        <div class="panel-body small" id="rk-warnings"></div>
+      </div>
+    </section>
+
+    <!-- ---------------- STATISTICS ---------------- -->
+    <section class="section" id="section-stats">
+      <div class="panel raised">
+        <div class="panel-title">Trading Statistics (closed trades, current account)</div>
+        <div class="panel-body grid grid-4" id="stats-grid"></div>
+      </div>
+    </section>
+
+    <!-- ---------------- ACCOUNT ---------------- -->
+    <section class="section" id="section-account">
+      <div class="panel raised">
+        <div class="panel-title">Account Management</div>
+        <div class="panel-body grid grid-3">
+          <div>
+            <div class="form-row"><label>DATE</label><input class="inset" type="date" id="dep-date"></div>
+            <div class="form-row"><label>AMOUNT</label><input class="inset" type="number" step="any" id="dep-amount"></div>
+            <div class="form-row"><label>NOTE</label><input class="inset" id="dep-note"></div>
+            <button class="win-btn" id="btn-deposit">Record Deposit</button>
+          </div>
+          <div>
+            <div class="form-row"><label>DATE</label><input class="inset" type="date" id="wd-date"></div>
+            <div class="form-row"><label>AMOUNT</label><input class="inset" type="number" step="any" id="wd-amount"></div>
+            <div class="form-row"><label>NOTE</label><input class="inset" id="wd-note"></div>
+            <button class="win-btn" id="btn-withdraw">Record Withdrawal</button>
+          </div>
+          <div>
+            <div class="form-row"><label>DATE</label><input class="inset" type="date" id="adj-date"></div>
+            <div class="form-row"><label>AMOUNT</label><input class="inset" type="number" step="any" id="adj-amount"></div>
+            <div class="form-row"><label>TYPE</label><select class="inset" id="adj-type"><option>INCREASE</option><option>DECREASE</option></select></div>
+            <div class="form-row"><label>REASON</label><input class="inset" id="adj-reason"></div>
+            <button class="win-btn" id="btn-adjust">Record Adjustment</button>
+          </div>
+        </div>
+        <div id="acct-msg" class="panel-body"></div>
+      </div>
+      <div class="panel raised">
+        <div class="panel-title">Transaction History</div>
+        <div class="panel-body" style="overflow-x:auto;">
+          <table class="data" id="tx-table">
+            <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Balance After</th><th>Note</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------- SETTINGS ---------------- -->
+    <section class="section" id="section-settings">
+      <div class="panel raised">
+        <div class="panel-title">Settings</div>
+        <div class="panel-body grid grid-3">
+          <div class="form-row"><label>CURRENCY</label><input class="inset" id="st-currency"></div>
+          <div class="form-row"><label>DECIMAL PLACES</label><input class="inset" type="number" id="st-decimals"></div>
+          <div class="form-row"><label>DEFAULT LEVERAGE</label><input class="inset" type="number" step="any" id="st-leverage"></div>
+          <div class="form-row"><label>TRADING FEE %</label><input class="inset" type="number" step="any" id="st-fee"></div>
+          <div class="form-row"><label>DEFAULT RISK %</label><input class="inset" type="number" step="any" id="st-default-risk"></div>
+          <div class="form-row"><label>MAX RISK %</label><input class="inset" type="number" step="any" id="st-max-risk"></div>
+          <div class="form-row"><label>MAX DAILY LOSS %</label><input class="inset" type="number" step="any" id="st-max-daily-loss"></div>
+          <div class="form-row"><label>MAX TRADES / DAY</label><input class="inset" type="number" id="st-max-trades"></div>
+          <div class="form-row"><label>WARNING THRESHOLD %</label><input class="inset" type="number" step="any" id="st-warn-threshold"></div>
+        </div>
+        <div class="panel-body">
+          <div id="st-msg"></div>
+          <button class="win-btn primary" id="btn-save-settings">Save Settings</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="statusbar">
+    <div class="seg">Account: <span id="sb-account">—</span></div>
+    <div class="seg">Balance: <span id="sb-balance">—</span></div>
+    <div class="seg">Open Trades: <span id="sb-open">—</span></div>
+    <div class="seg">Daily P/L: <span id="sb-daily">—</span></div>
+    <div class="seg">Risk Used: <span id="sb-risk">—</span></div>
+    <div class="seg" style="flex:1; text-align:right;">System: <span id="sb-system">Ready</span></div>
+  </div>
+</div>
+
+<script>
+// ============================================================================
+// CONFIG — fill in with your Supabase project's URL and anon public key.
+// ============================================================================
+const SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR-ANON-PUBLIC-KEY';
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ============================================================================
+// Central client-side state (Section 24 of the spec)
+// ============================================================================
+const state = {
+  user: null,
+  account: null,      // current account row
+  accounts: [],
+  settings: null,
+  trades: [],          // cached full trade list for current account
+  selectedOpenTrade: null,
+};
+
+// ============================================================================
+// Helpers
+// ============================================================================
+function fmtMoney(n){
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  const dp = state.settings?.decimal_places ?? 2;
+  const cur = state.settings?.currency ?? 'USD';
+  const sign = n < 0 ? '-' : '';
+  return `${sign}${cur} ${Math.abs(n).toFixed(dp)}`;
+}
+function fmtPct(n){
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  return `${n >= 0 ? '' : ''}${n.toFixed(2)}%`;
+}
+function plClass(n){ return n > 0 ? 'pos' : (n < 0 ? 'neg' : ''); }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+
+function showMsg(elId, text, type){
+  const el = document.getElementById(elId);
+  if (!text){ el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="msg-banner ${type === 'error' ? 'msg-error' : 'msg-info'}">${text}</div>`;
+}
+function friendlyError(err){
+  // Convert raw Supabase/Postgres error text into a readable message where reasonable.
+  const msg = err?.message || String(err);
+  if (msg.includes('duplicate key value') && msg.includes('entry_code')) return 'Entry Code collision — please retry.';
+  if (msg.includes('trades_stop_ne_entry')) return 'Stop Loss cannot be equal to Entry Price.';
+  if (msg.includes('violates check constraint')) return 'One of the values entered is invalid.';
+  if (msg.includes('violates foreign key')) return 'Referenced account or record was not found.';
+  return msg;
+}
+function setSystemStatus(text){ document.getElementById('sb-system').textContent = text; }
+
+// ============================================================================
+// Auth
+// ============================================================================
+document.getElementById('btn-sign-in').addEventListener('click', async () => {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  showMsg('auth-msg', '', null);
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error){ showMsg('auth-msg', friendlyError(error), 'error'); return; }
+  await boot();
+});
+document.getElementById('btn-sign-up').addEventListener('click', async () => {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  showMsg('auth-msg', '', null);
+  const { error } = await sb.auth.signUp({ email, password });
+  if (error){ showMsg('auth-msg', friendlyError(error), 'error'); return; }
+  showMsg('auth-msg', 'Account created. Check your email if confirmation is required, then sign in.', 'info');
+});
+document.getElementById('btn-signout').addEventListener('click', async () => {
+  await sb.auth.signOut();
+  location.reload();
+});
+
+async function boot(){
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user){ document.getElementById('auth-shell').style.display = 'flex'; document.getElementById('app-shell').style.display = 'none'; return; }
+  state.user = user;
+  document.getElementById('auth-shell').style.display = 'none';
+  document.getElementById('app-shell').style.display = 'flex';
+  await loadAccountsAndSettings();
+  await refreshAll();
+}
+
+// ============================================================================
+// Navigation (Section 26 — SPA, no full reload)
+// ============================================================================
+document.getElementById('nav-bar').addEventListener('click', (e) => {
+  const btn = e.target.closest('.nav-btn');
+  if (!btn || !btn.dataset.section) return;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('section-' + btn.dataset.section).classList.add('active');
+  loadSection(btn.dataset.section);
+});
+document.getElementById('btn-refresh').addEventListener('click', refreshAll);
+
+async function loadSection(name){
+  // Load only what the current section needs (Section 22).
+  if (name === 'dashboard') renderDashboard();
+  if (name === 'tradelog') renderTradeLog();
+  if (name === 'closetrade') renderCloseTradeSelect();
+  if (name === 'stats') renderStats();
+  if (name === 'account') renderAccountTx();
+}
+
+// ============================================================================
+// Data loading
+// ============================================================================
+async function loadAccountsAndSettings(){
+  const { data: accounts, error: accErr } = await sb.from('accounts').select('*').eq('status', 'ACTIVE').order('created_at');
+  if (accErr){ showMsg('global-msg', friendlyError(accErr), 'error'); return; }
+  state.accounts = accounts || [];
+  if (state.accounts.length === 0){
+    // First run: create a default account.
+    const { data: created, error: createErr } = await sb.from('accounts').insert({ account_name: 'Main Account', starting_capital: 0 }).select().single();
+    if (createErr){ showMsg('global-msg', friendlyError(createErr), 'error'); return; }
+    state.accounts = [created];
+  }
+  state.account = state.accounts[0];
+  document.getElementById('titlebar-account').textContent = state.account.account_name;
+  document.getElementById('sb-account').textContent = state.account.account_name;
+
+  const { data: settings, error: setErr } = await sb.from('settings').select('*').single();
+  if (setErr){ showMsg('global-msg', friendlyError(setErr), 'error'); return; }
+  state.settings = settings;
+  populateSettingsForm();
+}
+
+async function refreshAll(){
+  setSystemStatus('Refreshing…');
+  await loadTrades();
+  await loadBalance();
+  const activeSection = document.querySelector('.nav-btn.active')?.dataset.section || 'dashboard';
+  loadSection(activeSection);
+  setSystemStatus('Ready');
+}
+
+async function loadTrades(){
+  const { data, error } = await sb.from('trades').select('*').eq('account_id', state.account.id).neq('status', 'DELETED').order('entry_datetime', { ascending: false });
+  if (error){ showMsg('global-msg', friendlyError(error), 'error'); return; }
+  state.trades = data || [];
+}
+
+async function loadBalance(){
+  const { data, error } = await sb.from('account_balances').select('*').eq('account_id', state.account.id).single();
+  if (error){ showMsg('global-msg', friendlyError(error), 'error'); return; }
+  state.balance = data;
+  document.getElementById('sb-balance').textContent = fmtMoney(data.current_balance);
+  const openCount = state.trades.filter(t => t.status === 'OPEN').length;
+  document.getElementById('sb-open').textContent = openCount;
+  const todayPl = state.trades
+    .filter(t => t.status === 'CLOSED' && t.exit_datetime && t.exit_datetime.slice(0,10) === todayISO())
+    .reduce((s,t) => s + Number(t.net_pl || 0), 0);
+  document.getElementById('sb-daily').textContent = fmtMoney(todayPl);
+  const riskPct = state.settings?.max_daily_loss_pct ?? 0;
+  const usedPct = data.current_balance ? (Math.max(0,-todayPl) / data.current_balance * 100) : 0;
+  document.getElementById('sb-risk').textContent = `${usedPct.toFixed(1)}% / ${riskPct}%`;
+}
+
+// ============================================================================
+// DASHBOARD
+// ============================================================================
+function renderDashboard(){
+  const bal = state.balance;
+  document.getElementById('dash-balance').textContent = fmtMoney(bal?.current_balance);
+  document.getElementById('dash-realized').textContent = fmtMoney(bal?.realized_pl);
+
+  const closed = state.trades.filter(t => t.status === 'CLOSED');
+  const open = state.trades.filter(t => t.status === 'OPEN');
+  const todayPl = closed.filter(t => t.exit_datetime && t.exit_datetime.slice(0,10) === todayISO()).reduce((s,t) => s + Number(t.net_pl||0), 0);
+  const wins = closed.filter(t => Number(t.net_pl) > 0).length;
+  const winRate = closed.length ? (wins/closed.length*100) : 0;
+  const grossProfit = closed.filter(t=>Number(t.net_pl)>0).reduce((s,t)=>s+Number(t.net_pl),0);
+  const grossLoss = Math.abs(closed.filter(t=>Number(t.net_pl)<0).reduce((s,t)=>s+Number(t.net_pl),0));
+  const pf = grossLoss > 0 ? grossProfit/grossLoss : (grossProfit>0 ? Infinity : 0);
+
+  // current streak: consecutive wins or losses from most recent closed trade backward
+  const sortedClosed = [...closed].sort((a,b)=> new Date(b.exit_datetime) - new Date(a.exit_datetime));
+  let streak = 0, streakType = null;
+  for (const t of sortedClosed){
+    const isWin = Number(t.net_pl) > 0;
+    if (streakType === null){ streakType = isWin; streak = 1; }
+    else if (isWin === streakType){ streak++; }
+    else break;
+  }
+
+  document.getElementById('dash-today-pl').innerHTML = `<span class="${plClass(todayPl)}">${fmtMoney(todayPl)}</span>`;
+  document.getElementById('dash-open-count').textContent = open.length;
+  document.getElementById('dash-streak').textContent = streak ? `${streak} ${streakType ? 'W' : 'L'}` : '—';
+  document.getElementById('dash-total-trades').textContent = closed.length;
+  document.getElementById('dash-winrate').textContent = fmtPct(winRate);
+  document.getElementById('dash-pf').textContent = isFinite(pf) ? pf.toFixed(2) : '∞';
+
+  const tbody = document.querySelector('#dash-open-table tbody');
+  tbody.innerHTML = open.map(t => `
+    <tr>
+      <td>${t.entry_code}</td><td>${t.asset}</td><td>${t.direction}</td>
+      <td>${Number(t.entry_price).toFixed(4)}</td><td>${Number(t.position_size).toFixed(4)}</td>
+      <td>${t.stop_loss ?? '—'}</td><td>${t.take_profit ?? '—'}</td>
+      <td>${new Date(t.entry_datetime).toLocaleString()}</td>
+    </tr>`).join('') || '<tr><td colspan="8" class="small">No open positions.</td></tr>';
+}
+
+// ============================================================================
+// TRADE LOG
+// ============================================================================
+document.getElementById('tl-apply-filter').addEventListener('click', renderTradeLog);
+function renderTradeLog(){
+  const status = document.getElementById('tl-filter-status').value;
+  const assetFilter = document.getElementById('tl-filter-asset').value.trim().toUpperCase();
+  let rows = state.trades;
+  if (status !== 'ALL') rows = rows.filter(t => t.status === status);
+  if (assetFilter) rows = rows.filter(t => t.asset.toUpperCase().includes(assetFilter));
+
+  const tbody = document.querySelector('#tl-table tbody');
+  tbody.innerHTML = rows.map(t => `
+    <tr>
+      <td>${t.entry_code}</td><td>${t.asset}</td><td>${t.direction}</td>
+      <td>${Number(t.entry_price).toFixed(4)}</td><td>${t.exit_price ? Number(t.exit_price).toFixed(4) : '—'}</td>
+      <td>${Number(t.position_size).toFixed(4)}</td>
+      <td class="${plClass(Number(t.net_pl||0))}">${t.net_pl !== null ? fmtMoney(t.net_pl) : '—'}</td>
+      <td class="${plClass(Number(t.pl_pct||0))}">${t.pl_pct !== null ? fmtPct(t.pl_pct) : '—'}</td>
+      <td><span class="tag ${t.status === 'OPEN' ? 'open':'closed'}">${t.status}</span></td>
+    </tr>`).join('') || '<tr><td colspan="9" class="small">No trades match this filter.</td></tr>';
+}
+
+// ============================================================================
+// OPEN TRADE — local calculations, then server-side Entry Code + insert
+// ============================================================================
+const otFields = ['ot-asset','ot-market','ot-direction','ot-entry-price','ot-size','ot-leverage','ot-sl','ot-tp','ot-strategy'];
+otFields.forEach(id => document.getElementById(id).addEventListener('input', calcOpenTrade));
+
+function calcOpenTrade(){
+  const entry = parseFloat(document.getElementById('ot-entry-price').value);
+  const size = parseFloat(document.getElementById('ot-size').value);
+  const leverage = parseFloat(document.getElementById('ot-leverage').value) || 1;
+  const sl = parseFloat(document.getElementById('ot-sl').value);
+  const tp = parseFloat(document.getElementById('ot-tp').value);
+  const direction = document.getElementById('ot-direction').value;
+  const feePct = state.settings?.trading_fee_pct ?? 0;
+
+  if (!entry || !size){
+    ['risk','value','margin','maxloss','fee','rr'].forEach(k => document.getElementById('ot-calc-'+k).textContent = '—');
+    return null;
+  }
+  const positionValue = entry * size;
+  const margin = positionValue / leverage;
+  const entryFee = positionValue * feePct / 100;
+  let riskAmount = null, maxLoss = null, rr = null;
+  if (!isNaN(sl)){
+    const perUnitRisk = Math.abs(entry - sl);
+    riskAmount = perUnitRisk * size;
+    maxLoss = riskAmount;
+  }
+  if (!isNaN(sl) && !isNaN(tp)){
+    const reward = Math.abs(tp - entry);
+    const risk = Math.abs(entry - sl);
+    rr = risk > 0 ? reward/risk : null;
+  }
+  document.getElementById('ot-calc-risk').textContent = riskAmount !== null ? fmtMoney(riskAmount) : '—';
+  document.getElementById('ot-calc-value').textContent = fmtMoney(positionValue);
+  document.getElementById('ot-calc-margin').textContent = fmtMoney(margin);
+  document.getElementById('ot-calc-maxloss').textContent = maxLoss !== null ? fmtMoney(maxLoss) : '—';
+  document.getElementById('ot-calc-fee').textContent = fmtMoney(entryFee);
+  document.getElementById('ot-calc-rr').textContent = rr !== null ? rr.toFixed(2) : '—';
+
+  return { positionValue, margin, entryFee, riskAmount, maxLoss };
+}
+
+document.getElementById('ot-submit').addEventListener('click', async () => {
+  showMsg('ot-msg', '', null);
+  const asset = document.getElementById('ot-asset').value.trim();
+  const market = document.getElementById('ot-market').value;
+  const direction = document.getElementById('ot-direction').value;
+  const entry = parseFloat(document.getElementById('ot-entry-price').value);
+  const size = parseFloat(document.getElementById('ot-size').value);
+  const leverage = parseFloat(document.getElementById('ot-leverage').value);
+  const sl = parseFloat(document.getElementById('ot-sl').value);
+  const tp = parseFloat(document.getElementById('ot-tp').value);
+  const strategy = document.getElementById('ot-strategy').value.trim();
+  const note = document.getElementById('ot-note').value.trim();
+
+  // Frontend validation (Section 28)
+  if (!asset || !market || !direction || !entry || !size || !leverage || isNaN(sl) || isNaN(tp) || !strategy){
+    showMsg('ot-msg', 'All required fields must be filled in.', 'error'); return;
+  }
+  if (sl === entry){ showMsg('ot-msg', 'Stop Loss cannot be equal to Entry Price.', 'error'); return; }
+
+  const calc = calcOpenTrade();
+  setSystemStatus('Opening trade…');
+  const { data: entryCode, error: codeErr } = await sb.rpc('next_entry_code');
+  if (codeErr){ showMsg('ot-msg', friendlyError(codeErr), 'error'); setSystemStatus('Ready'); return; }
+
+  const { error } = await sb.from('trades').insert({
+    entry_code: entryCode,
+    account_id: state.account.id,
+    status: 'OPEN',
+    asset, market_type: market, direction,
+    entry_price: entry, position_size: size, leverage,
+    margin: calc.margin,
+    stop_loss: sl, take_profit: tp,
+    strategy, entry_note: note || null,
+    risk_amount: calc.riskAmount, position_value: calc.positionValue,
+    maximum_loss: calc.maxLoss, entry_fee: calc.entryFee,
+  });
+  setSystemStatus('Ready');
+  if (error){ showMsg('ot-msg', friendlyError(error), 'error'); return; }
+
+  showMsg('ot-msg', `Trade opened: ${entryCode}`, 'info');
+  ['ot-asset','ot-entry-price','ot-size','ot-sl','ot-tp','ot-strategy','ot-note'].forEach(id => document.getElementById(id).value = '');
+  calcOpenTrade();
+  await refreshAll();
+});
+
+// ============================================================================
+// CLOSE TRADE
+// ============================================================================
+function renderCloseTradeSelect(){
+  const sel = document.getElementById('ct-select');
+  const open = state.trades.filter(t => t.status === 'OPEN');
+  sel.innerHTML = '<option value="">— Select —</option>' + open.map(t => `<option value="${t.entry_code}">${t.entry_code} · ${t.asset} · ${t.direction}</option>`).join('');
+  document.getElementById('ct-details').innerHTML = '<span class="small">Select an open position.</span>';
+  state.selectedOpenTrade = null;
+}
+document.getElementById('ct-select').addEventListener('change', (e) => {
+  const trade = state.trades.find(t => t.entry_code === e.target.value);
+  state.selectedOpenTrade = trade || null;
+  const el = document.getElementById('ct-details');
+  if (!trade){ el.innerHTML = '<span class="small">Select an open position.</span>'; return; }
+  el.innerHTML = `
+    <b>${trade.asset}</b> (${trade.direction})<br>
+    Entry Price: ${Number(trade.entry_price).toFixed(4)}<br>
+    Position Size: ${Number(trade.position_size).toFixed(4)}<br>
+    Leverage: ${trade.leverage}x<br>
+    Strategy: ${trade.strategy || '—'}<br>
+    Entry Date: ${new Date(trade.entry_datetime).toLocaleString()}<br>
+    Stop Loss: ${trade.stop_loss ?? '—'} · Take Profit: ${trade.take_profit ?? '—'}
+  `;
+  calcCloseTrade();
+});
+['ct-exit-price','ct-exit-fee'].forEach(id => document.getElementById(id).addEventListener('input', calcCloseTrade));
+
+function calcCloseTrade(){
+  const t = state.selectedOpenTrade;
+  const exitPrice = parseFloat(document.getElementById('ct-exit-price').value);
+  const exitFee = parseFloat(document.getElementById('ct-exit-fee').value) || 0;
+  if (!t || isNaN(exitPrice)){
+    ['gross','net','pct','hold'].forEach(k => document.getElementById('ct-calc-'+k).textContent = '—');
+    return null;
+  }
+  const entry = Number(t.entry_price), size = Number(t.position_size), margin = Number(t.margin), entryFee = Number(t.entry_fee || 0);
+  const grossPl = t.direction === 'LONG' ? (exitPrice - entry) * size : (entry - exitPrice) * size;
+  const totalFees = entryFee + exitFee;
+  const netPl = grossPl - totalFees;
+  const plPct = margin > 0 ? (netPl / margin * 100) : null;
+  const holdHours = (Date.now() - new Date(t.entry_datetime).getTime()) / 3600000;
+
+  document.getElementById('ct-calc-gross').innerHTML = `<span class="${plClass(grossPl)}">${fmtMoney(grossPl)}</span>`;
+  document.getElementById('ct-calc-net').innerHTML = `<span class="${plClass(netPl)}">${fmtMoney(netPl)}</span>`;
+  document.getElementById('ct-calc-pct').innerHTML = plPct !== null ? `<span class="${plClass(plPct)}">${fmtPct(plPct)}</span>` : '—';
+  document.getElementById('ct-calc-hold').textContent = holdHours.toFixed(1) + ' h';
+
+  return { grossPl, totalFees, netPl, plPct, holdHours };
+}
+
+document.getElementById('ct-submit').addEventListener('click', async () => {
+  showMsg('ct-msg', '', null);
+  const t = state.selectedOpenTrade;
+  if (!t){ showMsg('ct-msg', 'Select an open position first.', 'error'); return; }
+  const exitPrice = parseFloat(document.getElementById('ct-exit-price').value);
+  const exitReason = document.getElementById('ct-exit-reason').value;
+  const exitFee = parseFloat(document.getElementById('ct-exit-fee').value) || 0;
+  if (!exitPrice){ showMsg('ct-msg', 'Exit Price is required.', 'error'); return; }
+
+  const calc = calcCloseTrade();
+  const entry = Number(t.entry_price), sl = t.stop_loss !== null ? Number(t.stop_loss) : null, tp = t.take_profit !== null ? Number(t.take_profit) : null;
+  let riskReward = null;
+  if (sl !== null && tp !== null){
+    const risk = Math.abs(entry - sl), reward = Math.abs(tp - entry);
+    riskReward = risk > 0 ? reward/risk : null;
+  }
+  const result = calc.netPl > 0 ? 'WIN' : (calc.netPl < 0 ? 'LOSS' : 'BREAKEVEN');
+
+  setSystemStatus('Closing trade…');
+  const { error } = await sb.from('trades').update({
+    status: 'CLOSED',
+    exit_datetime: new Date().toISOString(),
+    exit_price: exitPrice,
+    exit_reason: exitReason,
+    exit_fee: exitFee,
+    gross_pl: calc.grossPl,
+    total_fees: calc.totalFees,
+    net_pl: calc.netPl,
+    pl_pct: calc.plPct,
+    holding_hours: calc.holdHours,
+    risk_reward: riskReward,
+    result,
+  }).eq('entry_code', t.entry_code);
+  setSystemStatus('Ready');
+  if (error){ showMsg('ct-msg', friendlyError(error), 'error'); return; }
+
+  showMsg('ct-msg', `Trade ${t.entry_code} closed.`, 'info');
+  document.getElementById('ct-exit-price').value = '';
+  document.getElementById('ct-exit-fee').value = '0';
+  await refreshAll();
+  renderCloseTradeSelect();
+});
+
+// ============================================================================
+// RISK MANAGEMENT — pure client-side, updates instantly on input (Section 12)
+// ============================================================================
+const rkFields = ['rk-balance','rk-risk-pct','rk-entry','rk-sl','rk-tp','rk-leverage'];
+rkFields.forEach(id => document.getElementById(id).addEventListener('input', calcRisk));
+
+function calcRisk(){
+  const balance = parseFloat(document.getElementById('rk-balance').value);
+  const riskPct = parseFloat(document.getElementById('rk-risk-pct').value);
+  const entry = parseFloat(document.getElementById('rk-entry').value);
+  const sl = parseFloat(document.getElementById('rk-sl').value);
+  const tp = parseFloat(document.getElementById('rk-tp').value);
+  const leverage = parseFloat(document.getElementById('rk-leverage').value) || 1;
+
+  const outIds = ['risk','size','value','margin','maxloss','profit','loss','rr'];
+  if (!balance || !riskPct || !entry || isNaN(sl)){
+    outIds.forEach(k => document.getElementById('rk-out-'+k).textContent = '—');
+    document.getElementById('rk-warnings').innerHTML = '';
+    return;
+  }
+  const riskAmount = balance * riskPct / 100;
+  const perUnitRisk = Math.abs(entry - sl);
+  const positionSize = perUnitRisk > 0 ? riskAmount / perUnitRisk : 0;
+  const positionValue = positionSize * entry;
+  const margin = positionValue / leverage;
+  const maxLoss = riskAmount;
+  const potentialLoss = riskAmount;
+  let potentialProfit = null, rr = null;
+  if (!isNaN(tp)){
+    const reward = Math.abs(tp - entry);
+    potentialProfit = reward * positionSize;
+    rr = perUnitRisk > 0 ? reward/perUnitRisk : null;
+  }
+
+  document.getElementById('rk-out-risk').textContent = fmtMoney(riskAmount);
+  document.getElementById('rk-out-size').textContent = positionSize.toFixed(6);
+  document.getElementById('rk-out-value').textContent = fmtMoney(positionValue);
+  document.getElementById('rk-out-margin').textContent = fmtMoney(margin);
+  document.getElementById('rk-out-maxloss').textContent = fmtMoney(maxLoss);
+  document.getElementById('rk-out-profit').textContent = potentialProfit !== null ? fmtMoney(potentialProfit) : '—';
+  document.getElementById('rk-out-loss').textContent = fmtMoney(potentialLoss);
+  document.getElementById('rk-out-rr').textContent = rr !== null ? rr.toFixed(2) : '—';
+
+  // Informational warnings only — does not block (Section 12).
+  const warnings = [];
+  const maxRisk = state.settings?.max_risk_pct;
+  if (maxRisk && riskPct > maxRisk) warnings.push(`Risk % (${riskPct}%) exceeds configured Max Risk % (${maxRisk}%).`);
+  document.getElementById('rk-warnings').innerHTML = warnings.map(w => `<div class="msg-banner msg-error">${w}</div>`).join('');
+}
+
+// ============================================================================
+// STATISTICS
+// ============================================================================
+function renderStats(){
+  const closed = state.trades.filter(t => t.status === 'CLOSED');
+  const wins = closed.filter(t => Number(t.net_pl) > 0);
+  const losses = closed.filter(t => Number(t.net_pl) < 0);
+  const grossProfit = wins.reduce((s,t)=>s+Number(t.net_pl),0);
+  const grossLoss = Math.abs(losses.reduce((s,t)=>s+Number(t.net_pl),0));
+  const netPl = closed.reduce((s,t)=>s+Number(t.net_pl||0),0);
+  const avgPl = closed.length ? netPl/closed.length : 0;
+  const avgWin = wins.length ? grossProfit/wins.length : 0;
+  const avgLoss = losses.length ? grossLoss/losses.length : 0;
+  const largestWin = wins.length ? Math.max(...wins.map(t=>Number(t.net_pl))) : 0;
+  const largestLoss = losses.length ? Math.min(...losses.map(t=>Number(t.net_pl))) : 0;
+  const profitFactor = grossLoss > 0 ? grossProfit/grossLoss : (grossProfit > 0 ? Infinity : 0);
+  const winRate = closed.length ? wins.length/closed.length*100 : 0;
+  const expectancy = closed.length ? (winRate/100*avgWin) - ((1-winRate/100)*avgLoss) : 0;
+  const avgRR = closed.filter(t=>t.risk_reward !== null).length
+    ? closed.filter(t=>t.risk_reward !== null).reduce((s,t)=>s+Number(t.risk_reward),0) / closed.filter(t=>t.risk_reward !== null).length
+    : null;
+
+  // Max drawdown: peak-to-trough on cumulative realized net P/L only (Section 16).
+  const sorted = [...closed].sort((a,b)=> new Date(a.exit_datetime) - new Date(b.exit_datetime));
+  let cum = 0, peak = 0, maxDD = 0;
+  for (const t of sorted){
+    cum += Number(t.net_pl || 0);
+    peak = Math.max(peak, cum);
+    maxDD = Math.min(maxDD, cum - peak);
+  }
+
+  const rows = [
+    ['Total Trades', closed.length],
+    ['Winning Trades', wins.length],
+    ['Losing Trades', losses.length],
+    ['Win Rate', fmtPct(winRate)],
+    ['Gross Profit', fmtMoney(grossProfit)],
+    ['Gross Loss', fmtMoney(-grossLoss)],
+    ['Net P/L', fmtMoney(netPl)],
+    ['Average P/L', fmtMoney(avgPl)],
+    ['Average Win', fmtMoney(avgWin)],
+    ['Average Loss', fmtMoney(-avgLoss)],
+    ['Largest Win', fmtMoney(largestWin)],
+    ['Largest Loss', fmtMoney(largestLoss)],
+    ['Profit Factor', isFinite(profitFactor) ? profitFactor.toFixed(2) : '∞'],
+    ['Expectancy', fmtMoney(expectancy)],
+    ['Max Drawdown', fmtMoney(maxDD)],
+    ['Avg Risk/Reward', avgRR !== null ? avgRR.toFixed(2) : '—'],
+  ];
+  document.getElementById('stats-grid').innerHTML = rows.map(([label,val]) => `
+    <div class="stat-box inset"><div class="stat-label">${label}</div><div class="stat-value">${val}</div></div>
+  `).join('');
+}
+
+// ============================================================================
+// ACCOUNT MANAGEMENT
+// ============================================================================
+document.getElementById('btn-deposit').addEventListener('click', async () => {
+  const date = document.getElementById('dep-date').value || todayISO();
+  const amount = parseFloat(document.getElementById('dep-amount').value);
+  const note = document.getElementById('dep-note').value.trim();
+  if (!amount || amount <= 0){ showMsg('acct-msg', 'Enter a valid deposit amount.', 'error'); return; }
+  const { error } = await sb.from('deposits').insert({ account_id: state.account.id, date, amount, note: note || null });
+  if (error){ showMsg('acct-msg', friendlyError(error), 'error'); return; }
+  showMsg('acct-msg', 'Deposit recorded.', 'info');
+  document.getElementById('dep-amount').value=''; document.getElementById('dep-note').value='';
+  await refreshAll(); renderAccountTx();
+});
+document.getElementById('btn-withdraw').addEventListener('click', async () => {
+  const date = document.getElementById('wd-date').value || todayISO();
+  const amount = parseFloat(document.getElementById('wd-amount').value);
+  const note = document.getElementById('wd-note').value.trim();
+  if (!amount || amount <= 0){ showMsg('acct-msg', 'Enter a valid withdrawal amount.', 'error'); return; }
+  if (state.balance && amount > Number(state.balance.current_balance)){
+    showMsg('acct-msg', 'Withdrawal exceeds current balance.', 'error'); return;
+  }
+  const { error } = await sb.from('withdrawals').insert({ account_id: state.account.id, date, amount, note: note || null });
+  if (error){ showMsg('acct-msg', friendlyError(error), 'error'); return; }
+  showMsg('acct-msg', 'Withdrawal recorded.', 'info');
+  document.getElementById('wd-amount').value=''; document.getElementById('wd-note').value='';
+  await refreshAll(); renderAccountTx();
+});
+document.getElementById('btn-adjust').addEventListener('click', async () => {
+  const date = document.getElementById('adj-date').value || todayISO();
+  const amount = parseFloat(document.getElementById('adj-amount').value);
+  const type = document.getElementById('adj-type').value;
+  const reason = document.getElementById('adj-reason').value.trim();
+  if (!amount || amount <= 0){ showMsg('acct-msg', 'Enter a valid adjustment amount.', 'error'); return; }
+  const { error } = await sb.from('adjustments').insert({ account_id: state.account.id, date, amount, type, reason: reason || null });
+  if (error){ showMsg('acct-msg', friendlyError(error), 'error'); return; }
+  showMsg('acct-msg', 'Adjustment recorded.', 'info');
+  document.getElementById('adj-amount').value=''; document.getElementById('adj-reason').value='';
+  await refreshAll(); renderAccountTx();
+});
+
+async function renderAccountTx(){
+  const [{ data: deposits }, { data: withdrawals }, { data: adjustments }] = await Promise.all([
+    sb.from('deposits').select('*').eq('account_id', state.account.id),
+    sb.from('withdrawals').select('*').eq('account_id', state.account.id),
+    sb.from('adjustments').select('*').eq('account_id', state.account.id),
+  ]);
+  const closed = state.trades.filter(t => t.status === 'CLOSED');
+
+  let events = [
+    ...(deposits||[]).map(d => ({ date: d.date, type: 'DEPOSIT', amount: Number(d.amount), note: d.note })),
+    ...(withdrawals||[]).map(w => ({ date: w.date, type: 'WITHDRAWAL', amount: -Number(w.amount), note: w.note })),
+    ...(adjustments||[]).map(a => ({ date: a.date, type: `ADJUSTMENT (${a.type})`, amount: a.type === 'INCREASE' ? Number(a.amount) : -Number(a.amount), note: a.reason })),
+    ...closed.map(t => ({ date: t.exit_datetime?.slice(0,10), type: `REALIZED P/L (${t.entry_code})`, amount: Number(t.net_pl||0), note: t.asset })),
+  ].sort((a,b) => new Date(a.date) - new Date(b.date));
+
+  // Running balance computed client-side from Starting Capital forward (Section 20).
+  let running = Number(state.account.starting_capital);
+  events = events.map(e => { running += e.amount; return { ...e, balanceAfter: running }; });
+  events.reverse();
+
+  document.querySelector('#tx-table tbody').innerHTML = events.map(e => `
+    <tr>
+      <td>${e.date || '—'}</td><td>${e.type}</td>
+      <td class="${plClass(e.amount)}">${fmtMoney(e.amount)}</td>
+      <td>${fmtMoney(e.balanceAfter)}</td><td>${e.note || ''}</td>
+    </tr>`).join('') || '<tr><td colspan="5" class="small">No transactions yet.</td></tr>';
+}
+
+// ============================================================================
+// SETTINGS
+// ============================================================================
+function populateSettingsForm(){
+  const s = state.settings;
+  if (!s) return;
+  document.getElementById('st-currency').value = s.currency;
+  document.getElementById('st-decimals').value = s.decimal_places;
+  document.getElementById('st-leverage').value = s.default_leverage;
+  document.getElementById('st-fee').value = s.trading_fee_pct;
+  document.getElementById('st-default-risk').value = s.default_risk_pct;
+  document.getElementById('st-max-risk').value = s.max_risk_pct;
+  document.getElementById('st-max-daily-loss').value = s.max_daily_loss_pct;
+  document.getElementById('st-max-trades').value = s.max_trades_per_day;
+  document.getElementById('st-warn-threshold').value = s.warning_threshold_pct;
+}
+document.getElementById('btn-save-settings').addEventListener('click', async () => {
+  const payload = {
+    currency: document.getElementById('st-currency').value.trim() || 'USD',
+    decimal_places: parseInt(document.getElementById('st-decimals').value) || 2,
+    default_leverage: parseFloat(document.getElementById('st-leverage').value) || 1,
+    trading_fee_pct: parseFloat(document.getElementById('st-fee').value) || 0,
+    default_risk_pct: parseFloat(document.getElementById('st-default-risk').value) || 0,
+    max_risk_pct: parseFloat(document.getElementById('st-max-risk').value) || 0,
+    max_daily_loss_pct: parseFloat(document.getElementById('st-max-daily-loss').value) || 0,
+    max_trades_per_day: parseInt(document.getElementById('st-max-trades').value) || 0,
+    warning_threshold_pct: parseFloat(document.getElementById('st-warn-threshold').value) || 0,
+  };
+  const { error } = await sb.from('settings').update(payload).eq('user_id', state.user.id);
+  if (error){ showMsg('st-msg', friendlyError(error), 'error'); return; }
+  state.settings = { ...state.settings, ...payload };
+  showMsg('st-msg', 'Settings saved.', 'info');
+  await refreshAll();
+});
+
+// ============================================================================
+// Init
+// ============================================================================
+document.getElementById('dep-date').value = todayISO();
+document.getElementById('wd-date').value = todayISO();
+document.getElementById('adj-date').value = todayISO();
+boot();
+</script>
+</body>
+</html>
